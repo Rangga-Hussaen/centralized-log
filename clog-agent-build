@@ -1,0 +1,29 @@
+#!/usr/bin/bash
+# Fungsi untuk mencetak status
+status_message() {
+    if [ $? -eq 0 ]; then
+        echo "[SUCCESS] $1"
+    else
+        echo "[ERROR] $1"
+        exit 1  # Keluar dari skrip jika ada perintah yang gagal
+    fi
+}
+
+#Uncomment perintah dibawah bila terdapat koneksi internet dan belum install rsyslog
+#dnf install dnf install rsyslog rsyslog-gnutls
+#status_message "Menginstall rsyslog dan rsysylog-gnutls"
+
+# 1. Menambahkan konfigurasi ke dalam file /etc/rsyslog.d/clog-agent.conf
+echo 'module(load="imudp")' > /etc/rsyslog.d/clog-agent.conf
+echo 'input(type="imudp" port="514")' >> /etc/rsyslog.d/clog-agent.conf
+echo 'module(load="imtcp")' >> /etc/rsyslog.d/clog-agent.conf
+echo 'input(type="imtcp" port="514")' >> /etc/rsyslog.d/clog-agent.conf
+echo '*.* @172.24.9.254:514' >> /etc/rsyslog.d/clog-agent.conf
+echo '*.* @@172.24.9.254:514' >> /etc/rsyslog.d/clog-agent.conf
+status_message "Menambahkan konfigurasi ke /etc/rsyslog.d/clog-agent.conf"
+
+# 2. Restart layanan rsyslog untuk menerapkan perubahan
+systemctl restart rsyslog
+status_message "Merestart layanan rsyslog untuk menerapkan perubahan"
+
+echo "Konfigurasi rsyslog berhasil diterapkan!"

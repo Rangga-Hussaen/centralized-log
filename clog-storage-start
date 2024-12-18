@@ -1,0 +1,35 @@
+#!/usr/bin/bash
+
+# Fungsi untuk mencetak status
+status_message() {
+    if [ $? -eq 0 ]; then
+        echo "[SUCCESS] $1"
+    else
+        echo "[ERROR] $1"
+        exit 1  # Keluar dari skrip jika ada perintah yang gagal
+    fi
+}
+
+# 1. Membuat direktori /netdir
+mkdir -p /netdir
+status_message "Membuat direktori /netdir"
+
+# 2. Menambahkan konfigurasi pada sshd_config
+echo "Port 22" >> /etc/ssh/sshd_config.d/clog_storage.conf
+status_message "Menambahkan 'Port 22' pada /etc/ssh/sshd_config.d/clog_storage.conf"
+
+echo "PermitRootLogin yes" >> /etc/ssh/sshd_config.d/clog_storage.conf
+status_message "Menambahkan 'PermitRootLogin yes' pada /etc/ssh/sshd_config.d/clog_storage.conf"
+
+# 3. Restart layanan SSH untuk menerapkan perubahan
+systemctl restart sshd.service
+status_message "Restart layanan SSH untuk menerapkan perubahan"
+
+# 6. Menambahkan cron job untuk menjalankan skrip ini setiap hari pada jam 1 pagi
+cron_job="0 1 * * * /usr/bin/bash /usr/local/bin/clog-storage-schedule"
+
+# Menambahkan cron job jika belum ada
+(crontab -l 2>/dev/null; echo "$cron_job") | crontab -
+status_message "Cron job telah ditambahkan untuk menjalankan skrip ini setiap hari pada jam 1 pagi"
+
+echo "Konfigurasi clog-storage berhasil!"

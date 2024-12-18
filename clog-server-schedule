@@ -1,0 +1,49 @@
+#!/usr/bin/bash
+
+# Fungsi untuk mencetak status
+status_message() {
+    if [ $? -eq 0 ]; then
+        echo "[SUCCESS] $1"
+    else
+        echo "[ERROR] $1"
+        exit 1  # Keluar dari skrip jika ada perintah yang gagal
+    fi
+}
+
+# 1. Enkripsi semua file syslog yang ada di dalam direktori node*
+echo "Mulai enkripsi file syslog..."
+ls -1t /var/log/node*/*/syslog* | tail -n +2 | while read syslog; do
+  openssl enc -aes-256-cbc -salt -in "$syslog" -out "$syslog.enc" -pass pass:password
+  status_message "Mengenkripsi $syslog"
+done
+
+# 2. Menghapus file syslog setelah dienkripsi
+echo "Menghapus file syslog setelah enkripsi..."
+ls -1t /var/log/node*/*/syslog*.log | tail -n +2 | xargs rm
+status_message "Menghapus file syslog yang sudah dienkripsi"
+
+# 3. Menghapus direktori yang tidak ada modifikasi lebih dari 2 hari
+echo "Menghapus direktori yang tidak dimodifikasi lebih dari 2 hari..."
+MAIN_DIR="/var/log"
+
+for node_dir in "$MAIN_DIR"/node*/; do
+  # Menentukan direktori terbaru berdasarkan waktu modifikasi untuk setiap node*
+  newest_dir=$(ls -td "$node_dir"*/ | head -n 1)
+
+  # Menelusuri setiap subdirektori di dalam direktori node*
+  for subdir in "$node_dir"*/; do
+    # Jika subdirektori bukan direktori terbaru, hapus direktori tersebut
+    if [ "$subdir" != "$newest_dir" ]; then
+      echo "Menghapus $subdir"
+      rm -rf "$subdir"
+      status_message "Menghapus direktori $subdir"
+    fi
+  done
+done
+
+# 4. Menyinkronkan file log ke node2 menggunakan rsync
+echo "Menyinkronkan file ke node2..."
+rsync -av /var/log/node* root@node2:/netdir/
+status_message "Selesai menyinkronkan file ke node2"
+
+echo "Skrip selesai dijalankan dengan baik!"

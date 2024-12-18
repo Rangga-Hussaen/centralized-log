@@ -1,0 +1,60 @@
+#!/usr/bin/bash
+
+# Fungsi untuk mencetak status
+status_message() {
+    if [ $? -eq 0 ]; then
+        echo "[SUCCESS] $1"
+    else
+        echo "[ERROR] $1"
+        exit 1  # Keluar dari skrip jika ada perintah yang gagal
+    fi
+}
+
+# 1. Menginstal paket rsyslog dan rsyslog-gnutls
+dnf install -y rsyslog rsyslog-gnutls
+status_message "Menginstal rsyslog dan rsyslog-gnutls"
+
+# 2. Menginstal paket rsync
+dnf install -y rsync
+status_message "Menginstal rsync"
+
+# 3. Menambahkan konfigurasi ke /etc/rsyslog.d/clog-server.conf
+echo 'module(load="imudp")' > /etc/rsyslog.d/clog-server.conf
+echo 'input(type="imudp" port="514")' >> /etc/rsyslog.d/clog-server.conf
+echo 'module(load="imtcp")' >> /etc/rsyslog.d/clog-server.conf
+echo 'input(type="imtcp" port="514")' >> /etc/rsyslog.d/clog-server.conf
+echo '$template FILENAME,"/var/log/%hostname%/%$month%-%$year%/syslog-%$minute%-%$DAY%-%$month%-%$YEAR%.log"' >> /etc/rsyslog.d/clog-server.conf
+echo '*.* ?FILENAME' >> /etc/rsyslog.d/clog-server.conf
+status_message "Menambahkan konfigurasi ke /etc/rsyslog.d/clog-server.conf"
+
+# 4. Mengkonfigurasi firewall untuk membuka port 514/tcp dan 514/udp
+firewall-cmd --add-port=514/tcp --zone=public --permanent
+status_message "Menambahkan port 514/tcp ke firewall"
+
+firewall-cmd --add-port=514/udp --zone=public --permanent
+status_message "Menambahkan port 514/udp ke firewall"
+
+# 5. Mengreload firewall untuk menerapkan perubahan
+firewall-cmd --reload
+status_message "Memuat ulang firewall untuk menerapkan perubahan"
+
+# 6. Merestart layanan rsyslog
+systemctl restart rsyslog.service
+status_message "Merestart layanan rsyslog"
+
+# 7. Menghasilkan pasangan kunci SSH RSA
+ssh-keygen -t rsa -b 4096 -N "" -f ~/.ssh/id_rsa
+status_message "Menghasilkan pasangan kunci SSH RSA"
+
+# 8. Menyalin kunci SSH ke node2
+ssh-copy-id root@node2
+status_message "Menyalin kunci SSH ke node2"
+
+# 6. Menambahkan cron job untuk menjalankan skrip ini setiap hari pada jam 0.30 pagi
+cron_job="30 0 * * * /usr/bin/bash /usr/local/bin/clog-server-schedule"
+
+# Menambahkan cron job jika belum ada
+(crontab -l 2>/dev/null; echo "$cron_job") | crontab -
+status_message "Cron job telah ditambahkan untuk menjalankan skrip ini setiap hari pada jam 0.30 pagi"
+
+echo "Skrip selesai dijalankan dengan baik!"

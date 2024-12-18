@@ -1,0 +1,27 @@
+#!/usr/bin/bash
+# 4. Menghapus semua file berekstensi .log pada subdirektori node*
+find /netdir/node* -type f -name "*.log" -exec rm -f {} \;
+
+# 5. Menelusuri setiap subdirektori di dalam direktori /netdir/node* dan mengompresnya
+DIR="/netdir"
+
+# Menelusuri setiap direktori node* di dalam /netdir/
+for node_dir in "$DIR"/node*/; do
+  # Memastikan bahwa node_dir adalah direktori
+  if [ -d "$node_dir" ]; then
+    # Menelusuri setiap subdirektori di dalam direktori node*
+    for subdir in "$node_dir"*/; do
+      # Memeriksa apakah item adalah subdirektori
+      if [ -d "$subdir" ]; then
+        # Nama file output untuk kompresi
+        tar_file="${subdir%/}.tar.gz"  # Menghilangkan '/' dari akhir subdirektori
+
+        # Mengkompres subdirektori menjadi file .tar.gz
+        tar -czf "$tar_file" -C "$node_dir" "$(basename "$subdir")"
+
+        # Menghapus subdirektori setelah kompresi selesai
+        rm -rf "$subdir"
+      fi
+    done
+  fi
+done
